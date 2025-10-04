@@ -13,34 +13,38 @@
     <input type="text" id="search-input" placeholder="Buscar una localidad..." />
     <button onclick="searchLocation()">Buscar</button>
     <div id="info">
-      📍 Coordenadas  : <span id="coords">None</span> |
-      🏠 Ubicacion  : <span id="address">None</span>
+      📍 Coordenadas: <span id="coords">None</span> |
+      🏠 Ubicación: <span id="address">None</span>
     </div>
   </header>
 
   <div id="main">
     <div id="map"></div>
     <div id="sidebar">
-      <label><strong>📅 Selectionar una fecha :</strong></label>
+      <label><strong>📅 Seleccionar una fecha:</strong></label>
       <input type="date" id="date-input" />
 
-      <div class="indicator">🌧️ Lluivia : <span id="rain">probable</span></div>
-      <div class="indicator">💨 Viento : <span id="wind">probable</span></div>
-      <div class="indicator">🔥 Alta temperatura : <span id="high">probable</span></div>
-      <div class="indicator">❄️ Baja temperatura : <span id="low">improbable</span></div>
+      <hr />
+
+      <div class="indicator">🌧️ Lluvia promedio: <span id="rain">–</span> mm</div>
+      <div class="indicator">🌡️ Temperatura promedio: <span id="temp">–</span> °C</div>
+
+      <hr />
+      <div id="status" style="font-size:0.9em;color:#888;">Haz clic en el mapa o busca una localidad</div>
     </div>
   </div>
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-  const map = L.map('map').setView([48.8566, 2.3522], 5); // Paris par défaut
+  const map = L.map('map').setView([48.8566, 2.3522], 5); // Paris por defecto
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 18
   }).addTo(map);
 
   let marker = null;
+  let currentCoords = { lat: 48.8566, lng: 2.3522 };
 
   function updateInfo(lat, lng, address = 'None') {
     document.getElementById('coords').textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
@@ -48,15 +52,12 @@
   }
 
   function updateMarker(lat, lng) {
-    if (marker) {
-      map.removeLayer(marker);
-    }
+    if (marker) map.removeLayer(marker);
     marker = L.marker([lat, lng]).addTo(map);
-    map.setView([lat, lng], 10);
+    map.setView([lat, lng], 8);
     reverseGeocode(lat, lng);
-    setTimeout(() => {
-        map.invalidateSize();
-    }, 100);
+    currentCoords = { lat, lng };
+    fetchWeather();
   }
 
   map.on('click', function(e) {
@@ -74,7 +75,7 @@
           const { lat, lon } = data[0];
           updateMarker(parseFloat(lat), parseFloat(lon));
         } else {
-          alert("Localité non trouvée !");
+          alert("Localidad no encontrada.");
         }
       });
   }
@@ -83,15 +84,44 @@
     fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
       .then(res => res.json())
       .then(data => {
-        const address = data.display_name || "Adresse inconnue";
+        const address = data.display_name || "Dirección desconocida";
         updateInfo(lat, lng, address);
       })
       .catch(() => {
-        updateInfo(lat, lng, "Erreur");
+        updateInfo(lat, lng, "Error de geocodificación");
       });
   }
 
-  // Initialiser avec Paris
+  function fetchWeather() {
+    const date = document.getElementById('date-input').value;
+    if (!date) {
+      document.getElementById('status').textContent = "Selecciona una fecha para obtener datos meteorológicos.";
+      return;
+    }
+
+    const { lat, lng } = currentCoords;
+    document.getElementById('status').textContent = "Consultando datos...";
+
+    Promise.all([
+      fetch(`/temp_avg?date=${date}&lat=${lat}&lon=${lng}`).then(r => r.json()),
+      fetch(`/precip_avg?date=${date}&lat=${lat}&lon=${lng}`).then(r => r.json())
+    ])
+    .then(([tempData, precipData]) => {
+      const temp = tempData.temp_avg_C ?? "–";
+      const rain = precipData.precip_avg_mm ?? "–";
+      document.getElementById('temp').textContent = temp === "–" ? "No data" : temp.toFixed(2);
+      document.getElementById('rain').textContent = rain === "–" ? "No data" : rain.toFixed(2);
+      document.getElementById('status').textContent = "Datos actualizados ✅";
+    })
+    .catch(err => {
+      console.error(err);
+      document.getElementById('status').textContent = "Error al consultar los datos ❌";
+    });
+  }
+
+  document.getElementById('date-input').addEventListener('change', fetchWeather);
+
+  // Inicializar con París
   updateMarker(48.8566, 2.3522);
 </script>
 
