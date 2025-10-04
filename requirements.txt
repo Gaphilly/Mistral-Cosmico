@@ -8,4 +8,5 @@ requests
 h5netcdf
 Flask
 numpy
+gunicorn
 
