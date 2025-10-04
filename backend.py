@@ -124,4 +124,8 @@ if __name__ == "__main__":
 
 @app.route("/")
 def serve_index():
-    return send_from_directory(app.static_folder, "index.html")
+    return send_from_directory(app.static_folder, "index.html") # type: ignore
+
+@app.route("/style.css")
+def serve_style():
+    return send_from_directory(app.static_folder, "style.css") # type: ignore
