@@ -4,6 +4,7 @@ import datetime
 import requests
 import xarray as xr
 import numpy as np
+from requests.auth import HTTPBasicAuth
 
 app = Flask(__name__, static_folder="static")
 
@@ -42,7 +43,7 @@ def download_file(url):
 
     print(f"[INFO] Downloading {url} ...")
     try:
-        response = requests.get(url, stream=True, timeout=30, auth=("gaphilly", "Bbroz678@lafase")) # type: ignore
+        response = requests.get(url, stream=True, timeout=30, auth=HTTPBasicAuth(USERNAME, PASSWORD)) # type: ignore
         if response.status_code == 200:
             with open(filename, "wb") as f:
                 for chunk in response.iter_content(1024):
