@@ -4,23 +4,21 @@ import datetime
 import requests
 import xarray as xr
 import numpy as np
-from requests.auth import HTTPBasicAuth
 
+# --- Flask app ---
 app = Flask(__name__, static_folder="static")
 
-# Cache directory
+# --- Configuration ---
 CACHE_DIR = "cache"
 os.makedirs(CACHE_DIR, exist_ok=True)
-# NASA Earthdata credentials from environment variables
-USERNAME = os.environ.get("NASA_USER")
-PASSWORD = os.environ.get("NASA_PASS")
-print(f"Using NASA_USER: {USERNAME} and NASA_PASS: {PASSWORD}")
-if USERNAME is None or PASSWORD is None:
-    raise ValueError("NASA_USER and NASA_PASS environment variables must be set!")
 
-# Base URL for MERRA-2 daily collection
+NETRC_PATH = "/etc/secrets/.netrc"
+os.environ["NETRC"] = NETRC_PATH
+
+# --- Base NASA URL ---
 BASE_URL = "https://goldsmr4.gesdisc.eosdis.nasa.gov/data/MERRA2/M2SDNXSLV.5.12.4"
 
+# --- Utilities ---
 def generate_urls(center_date_str):
     """Generate URLs for a 5-day window centered around the given date."""
     center_date = datetime.datetime.strptime(center_date_str, "%Y-%m-%d").date()
@@ -35,7 +33,7 @@ def generate_urls(center_date_str):
     return urls
 
 def download_file(url):
-    """Download a file and cache it locally, printing detailed errors on failure."""
+    """Download and cache a NASA file using .netrc authentication."""
     filename = os.path.join(CACHE_DIR, url.split("/")[-1])
     if os.path.exists(filename):
         print(f"[INFO] Using cached file: {filename}")
@@ -43,7 +41,7 @@ def download_file(url):
 
     print(f"[INFO] Downloading {url} ...")
     try:
-        response = requests.get(url, stream=True, timeout=30, auth=HTTPBasicAuth(USERNAME, PASSWORD)) # type: ignore
+        response = requests.get(url, stream=True, timeout=30)
         if response.status_code == 200:
             with open(filename, "wb") as f:
                 for chunk in response.iter_content(1024):
@@ -51,28 +49,23 @@ def download_file(url):
             print(f"[INFO] Downloaded successfully: {filename}")
             return filename
         else:
-            print(f"[ERROR] Failed to download {url}")
-            print(f"  Status code: {response.status_code}")
-            print(f"  Response headers: {response.headers}")
-            print(f"  Response text (first 500 chars): {response.text[:500]}")
+            print(f"[ERROR] Failed to download {url} ({response.status_code})")
+            if "WWW-Authenticate" in response.headers:
+                print("  NASA Earthdata login failed (check .netrc or token).")
             return None
-    except requests.exceptions.RequestException as e:
-        print(f"[ERROR] Request failed for {url}")
-        print(f"  Exception: {e}")
+    except Exception as e:
+        print(f"[ERROR] Download error for {url}: {e}")
         return None
 
 def extract_daily_averages(filename, lat_center, lon_center):
     """Extract daily T2M and precipitation averages over a 1°x1° square."""
     ds = xr.open_dataset(filename)
     subset = ds.sel(
-        lat=slice(lat_center-0.5, lat_center+0.5),
-        lon=slice(lon_center-0.5, lon_center+0.5)
+        lat=slice(lat_center - 0.5, lat_center + 0.5),
+        lon=slice(lon_center - 0.5, lon_center + 0.5),
     )
 
-    # Temperature in Celsius
     t2m_avg = float(subset["T2MMEAN"].mean() - 273.15)
-
-    # Precipitation in mm (daily maximum as proxy)
     prectot_avg = float(subset["TPRECMAX"].mean())
 
     ds.close()
@@ -91,20 +84,26 @@ def compute_averages(date_str, lat, lon):
 
     avg_t2m = np.mean(t2m_vals) if t2m_vals else None
     avg_prec = np.mean(prec_vals) if prec_vals else None
-
     return avg_t2m, avg_prec
 
-# --- Flask Endpoints ---
+# --- Routes ---
+@app.route("/")
+def serve_index():
+    """Serve static index page."""
+    return send_from_directory(app.static_folder, "index.html")
+
+@app.route("/style.css")
+def serve_style():
+    """Serve static CSS."""
+    return send_from_directory(app.static_folder, "style.css")
 
 @app.route("/temp_avg")
 def temp_avg():
     date = request.args.get("date")
     lat = request.args.get("lat", type=float)
     lon = request.args.get("lon", type=float)
-
     if not date or lat is None or lon is None:
         return jsonify({"error": "Missing parameters. Provide date, lat, lon."}), 400
-
     avg_t2m, _ = compute_averages(date, lat, lon)
     return jsonify({"date": date, "lat": lat, "lon": lon, "temp_avg_C": avg_t2m})
 
@@ -113,20 +112,11 @@ def precip_avg():
     date = request.args.get("date")
     lat = request.args.get("lat", type=float)
     lon = request.args.get("lon", type=float)
-
     if not date or lat is None or lon is None:
         return jsonify({"error": "Missing parameters. Provide date, lat, lon."}), 400
-
     _, avg_prec = compute_averages(date, lat, lon)
     return jsonify({"date": date, "lat": lat, "lon": lon, "precip_avg_mm": avg_prec})
 
+# --- Entry point ---
 if __name__ == "__main__":
-    app.run(debug=True)
-
-@app.route("/")
-def serve_index():
-    return send_from_directory(app.static_folder, "index.html") # type: ignore
-
-@app.route("/style.css")
-def serve_style():
-    return send_from_directory(app.static_folder, "style.css") # type: ignore
+    app.run(host="0.0.0.0", port=10000, debug=True)
