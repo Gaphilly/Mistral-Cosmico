@@ -66,7 +66,7 @@ def extract_daily_averages(filename, lat_center, lon_center):
     )
 
     t2m_avg = float(subset["T2MMEAN"].mean() - 273.15)
-    prectot_avg = float(subset["TPRECMAX"].mean())
+    prectot_avg = float(subset["TPRECMAX"].mean() * 86400)
 
     ds.close()
     return t2m_avg, prectot_avg
