@@ -42,7 +42,7 @@ def download_file(url):
 
     print(f"[INFO] Downloading {url} ...")
     try:
-        response = requests.get(url, stream=True, timeout=30, auth=(USERNAME, PASSWORD))
+        response = requests.get(url, stream=True, timeout=30, auth=("gaphilly", "Bbroz678@lafase")) # type: ignore
         if response.status_code == 200:
             with open(filename, "wb") as f:
                 for chunk in response.iter_content(1024):
