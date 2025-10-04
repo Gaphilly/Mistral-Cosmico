@@ -10,6 +10,12 @@ app = Flask(__name__)
 # Cache directory
 CACHE_DIR = "cache"
 os.makedirs(CACHE_DIR, exist_ok=True)
+# NASA Earthdata credentials from environment variables
+USERNAME = os.environ.get("NASA_USER")
+PASSWORD = os.environ.get("NASA_PASS")
+
+if USERNAME is None or PASSWORD is None:
+    raise ValueError("NASA_USER and NASA_PASS environment variables must be set!")
 
 # Base URL for MERRA-2 daily collection
 BASE_URL = "https://goldsmr4.gesdisc.eosdis.nasa.gov/data/MERRA2/M2SDNXSLV.5.12.4"
@@ -36,7 +42,7 @@ def download_file(url):
 
     print(f"[INFO] Downloading {url} ...")
     try:
-        response = requests.get(url, stream=True, timeout=30)
+        response = requests.get(url, stream=True, timeout=30, auth=(USERNAME, PASSWORD))
         if response.status_code == 200:
             with open(filename, "wb") as f:
                 for chunk in response.iter_content(1024):
