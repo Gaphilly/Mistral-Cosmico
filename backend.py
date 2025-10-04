@@ -13,7 +13,7 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 # NASA Earthdata credentials from environment variables
 USERNAME = os.environ.get("NASA_USER")
 PASSWORD = os.environ.get("NASA_PASS")
-
+print(f"Using NASA_USER: {USERNAME} and NASA_PASS: {PASSWORD}")
 if USERNAME is None or PASSWORD is None:
     raise ValueError("NASA_USER and NASA_PASS environment variables must be set!")
 
