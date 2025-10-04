@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Carte avec Météo</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <input type="text" id="search-input" placeholder="Buscar una localidad..." />
+    <button onclick="searchLocation()">Buscar</button>
+    <div id="info">
+      📍 Coordenadas  : <span id="coords">None</span> |
+      🏠 Ubicacion  : <span id="address">None</span>
+    </div>
+  </header>
+
+  <div id="main">
+    <div id="map"></div>
+    <div id="sidebar">
+      <label><strong>📅 Selectionar una fecha :</strong></label>
+      <input type="date" id="date-input" />
+
+      <div class="indicator">🌧️ Lluivia : <span id="rain">probable</span></div>
+      <div class="indicator">💨 Viento : <span id="wind">probable</span></div>
+      <div class="indicator">🔥 Alta temperatura : <span id="high">probable</span></div>
+      <div class="indicator">❄️ Baja temperatura : <span id="low">improbable</span></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+  const map = L.map('map').setView([48.8566, 2.3522], 5); // Paris par défaut
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18
+  }).addTo(map);
+
+  let marker = null;
+
+  function updateInfo(lat, lng, address = 'None') {
+    document.getElementById('coords').textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    document.getElementById('address').textContent = address;
+  }
+
+  function updateMarker(lat, lng) {
+    if (marker) {
+      map.removeLayer(marker);
+    }
+    marker = L.marker([lat, lng]).addTo(map);
+    map.setView([lat, lng], 10);
+    reverseGeocode(lat, lng);
+    setTimeout(() => {
+        map.invalidateSize();
+    }, 100);
+  }
+
+  map.on('click', function(e) {
+    const { lat, lng } = e.latlng;
+    updateMarker(lat, lng);
+  });
+
+  function searchLocation() {
+    const query = document.getElementById('search-input').value;
+    if (!query) return;
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.length > 0) {
+          const { lat, lon } = data[0];
+          updateMarker(parseFloat(lat), parseFloat(lon));
+        } else {
+          alert("Localité non trouvée !");
+        }
+      });
+  }
+
+  function reverseGeocode(lat, lng) {
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+      .then(res => res.json())
+      .then(data => {
+        const address = data.display_name || "Adresse inconnue";
+        updateInfo(lat, lng, address);
+      })
+      .catch(() => {
+        updateInfo(lat, lng, "Erreur");
+      });
+  }
+
+  // Initialiser avec Paris
+  updateMarker(48.8566, 2.3522);
+</script>
+
+</body>
+</html>

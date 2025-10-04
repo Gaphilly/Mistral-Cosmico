@@ -1,11 +1,11 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 import os
 import datetime
 import requests
 import xarray as xr
 import numpy as np
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static")
 
 # Cache directory
 CACHE_DIR = "cache"
@@ -121,3 +121,7 @@ def precip_avg():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+@app.route("/")
+def serve_index():
+    return send_from_directory(app.static_folder, "index.html")
