@@ -1,0 +1,11 @@
+geopy
+pydap
+dask
+xarray
+netCDF4
+earthaccess
+requests
+h5netcdf
+Flask
+numpy
+
