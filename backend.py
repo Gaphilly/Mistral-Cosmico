@@ -28,19 +28,31 @@ def generate_urls(center_date_str):
     return urls
 
 def download_file(url):
-    """Download file if not cached."""
+    """Download a file and cache it locally, printing detailed errors on failure."""
     filename = os.path.join(CACHE_DIR, url.split("/")[-1])
-    if not os.path.exists(filename):
-        print(f"Downloading {filename}...")
-        r = requests.get(url, stream=True)
-        if r.status_code == 200:
+    if os.path.exists(filename):
+        print(f"[INFO] Using cached file: {filename}")
+        return filename
+
+    print(f"[INFO] Downloading {url} ...")
+    try:
+        response = requests.get(url, stream=True, timeout=30)
+        if response.status_code == 200:
             with open(filename, "wb") as f:
-                for chunk in r.iter_content(1024):
+                for chunk in response.iter_content(1024):
                     f.write(chunk)
+            print(f"[INFO] Downloaded successfully: {filename}")
+            return filename
         else:
-            print(f"Failed to download {url}")
+            print(f"[ERROR] Failed to download {url}")
+            print(f"  Status code: {response.status_code}")
+            print(f"  Response headers: {response.headers}")
+            print(f"  Response text (first 500 chars): {response.text[:500]}")
             return None
-    return filename
+    except requests.exceptions.RequestException as e:
+        print(f"[ERROR] Request failed for {url}")
+        print(f"  Exception: {e}")
+        return None
 
 def extract_daily_averages(filename, lat_center, lon_center):
     """Extract daily T2M and precipitation averages over a 1°x1° square."""
