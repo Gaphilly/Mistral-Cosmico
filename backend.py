@@ -5,7 +5,7 @@ import requests
 import xarray as xr
 import numpy as np
 
-app = Flask(__name__)
+app = Flask("backend")
 
 # Cache directory
 CACHE_DIR = "cache"
