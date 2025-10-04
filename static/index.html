@@ -20,9 +20,12 @@
 
   <div id="main">
     <div id="map"></div>
+
     <div id="sidebar">
       <label><strong>📅 Seleccionar una fecha:</strong></label>
       <input type="date" id="date-input" />
+
+      <button id="fetch-btn" onclick="fetchWeather()">📊 Obtener datos</button>
 
       <hr />
 
@@ -57,7 +60,6 @@
     map.setView([lat, lng], 8);
     reverseGeocode(lat, lng);
     currentCoords = { lat, lng };
-    fetchWeather();
   }
 
   map.on('click', function(e) {
@@ -95,12 +97,12 @@
   function fetchWeather() {
     const date = document.getElementById('date-input').value;
     if (!date) {
-      document.getElementById('status').textContent = "Selecciona una fecha para obtener datos meteorológicos.";
+      document.getElementById('status').textContent = "Selecciona una fecha antes de obtener los datos.";
       return;
     }
 
     const { lat, lng } = currentCoords;
-    document.getElementById('status').textContent = "Consultando datos...";
+    document.getElementById('status').textContent = "Consultando datos meteorológicos...";
 
     Promise.all([
       fetch(`/temp_avg?date=${date}&lat=${lat}&lon=${lng}`).then(r => r.json()),
@@ -118,8 +120,6 @@
       document.getElementById('status').textContent = "Error al consultar los datos ❌";
     });
   }
-
-  document.getElementById('date-input').addEventListener('change', fetchWeather);
 
   // Inicializar con París
   updateMarker(48.8566, 2.3522);
