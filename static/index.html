@@ -23,10 +23,9 @@
 
     <div id="sidebar">
       <label><strong>📅 Selecciona un día y mes:</strong></label>
-      <input type="month" id="month-input" style="display:none;"> <!-- hidden fallback -->
       <div style="display:flex; gap:5px;">
         <input type="number" id="day-input" placeholder="Día" min="1" max="31" style="width:70px;">
-        <input type="number" id="month-input2" placeholder="Mes" min="1" max="12" style="width:70px;">
+        <input type="number" id="month-input" placeholder="Mes" min="1" max="12" style="width:70px;">
       </div>
 
       <button id="fetch-btn" onclick="fetchWeather()">📊 Obtener datos históricos</button>
@@ -44,7 +43,7 @@
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-  const map = L.map('map').setView([48.8566, 2.3522], 5); // Paris por defecto
+  const map = L.map('map').setView([48.8566, 2.3522], 5); // París por defecto
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
 
   let marker = null;
@@ -87,7 +86,7 @@
 
   function fetchWeather() {
     const day = parseInt(document.getElementById('day-input').value);
-    const month = parseInt(document.getElementById('month-input2').value);
+    const month = parseInt(document.getElementById('month-input').value);
     if (!day || !month) {
       document.getElementById('status').textContent = "Selecciona un día y mes antes de obtener los datos.";
       return;
@@ -95,22 +94,18 @@
 
     const { lat, lng } = currentCoords;
     document.getElementById('status').textContent = "Consultando datos históricos...";
-    
-    Promise.all([
-      fetch(`/temp_stats?day=${day}&month=${month}&lat=${lat}&lon=${lng}`).then(r => r.json()),
-      fetch(`/rain_freq?day=${day}&month=${month}&lat=${lat}&lon=${lng}`).then(r => r.json())
-    ])
-    .then(([tempData, rainData]) => {
-      const temp = tempData.temp_avg_C ?? "–";
-      const rainFreq = rainData.rain_freq ?? null;
-      document.getElementById('temp').textContent = temp === "–" ? "No data" : temp.toFixed(2);
-      document.getElementById('rain').textContent = rainFreq === null ? "No data" : `${(rainFreq * 100).toFixed(1)} %`;
-      document.getElementById('status').textContent = "Datos actualizados ✅";
-    })
-    .catch(err => {
-      console.error(err);
-      document.getElementById('status').textContent = "Error al consultar los datos ❌";
-    });
+
+    fetch(`/climate_stats?day=${day}&month=${month}&lat=${lat}&lon=${lng}`)
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('temp').textContent = data.avg_temp_C !== null ? data.avg_temp_C.toFixed(2) : "No data";
+        document.getElementById('rain').textContent = data.rainfall_gt_2mm_freq_percent !== null ? `${data.rainfall_gt_2mm_freq_percent} %` : "No data";
+        document.getElementById('status').textContent = "Datos actualizados ✅";
+      })
+      .catch(err => {
+        console.error(err);
+        document.getElementById('status').textContent = "Error al consultar los datos ❌";
+      });
   }
 
   // Inicializar con París
