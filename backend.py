@@ -85,6 +85,10 @@ def extract_precip(filename, lat, lon):
 def serve_index():
     return send_from_directory(app.static_folder, "index.html")
 
+@app.route("/style.css")
+def serve_style():
+    return send_from_directory(app.static_folder, "style.css")
+
 @app.route("/precip_freq")
 def precip_frequency():
     """Return fraction of past 15 years where daily rain > 2mm for given day/month."""
