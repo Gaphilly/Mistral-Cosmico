@@ -253,6 +253,11 @@ def serve_style():
     log("Serving style.css")
     return send_from_directory(app.static_folder, "style.css")  # type: ignore
 
+@app.route("/logo.jpg")
+def serve_logo():
+    log("Serving logo.jpg")
+    return send_from_directory(app.static_folder, "logo.jpg")  # type: ignore
+
 @app.route("/climate_stats")
 def climate_stats():
     day = request.args.get("day", type=int)
