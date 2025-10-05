@@ -19,10 +19,8 @@ A web application that predicts the weather for any specific date and location i
 * The user selects a location on the map or enters it in the search bar.
 * The system retrieves the GPS coordinates of that location.
 * The backend fetches relevant historical climate data from the NASA GES DISC API.
-
-A prediction algorithm estimates likely conditions for the selected date.
-
-The website displays the results in a clean and interactive format.
+* A prediction algorithm estimates likely conditions for the selected date.
+* The website displays the results in a clean and interactive format.
 
 ## Team
 
