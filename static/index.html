@@ -28,11 +28,11 @@
         <input type="number" id="month-input" placeholder="Mes" min="1" max="12" style="width:70px;">
       </div>
 
-      <button id="fetch-btn" onclick="fetchWeather()">📊 Obtener datos históricos</button>
+      <button id="fetch-btn" onclick="fetchWeather()">📊 Obtener predicción...</button>
 
       <hr />
 
-      <div class="indicator">🌧️ Frecuencia de lluvia (&gt;2 mm): <span id="rain">–</span></div>
+      <div class="indicator">🌧️ Frecuencia de lluvia: <span id="rain">–</span></div>
       <div class="indicator">🌡️ Temperatura promedio: <span id="temp">–</span> °C</div>
 
       <hr />
@@ -88,12 +88,12 @@
     const day = parseInt(document.getElementById('day-input').value);
     const month = parseInt(document.getElementById('month-input').value);
     if (!day || !month) {
-      document.getElementById('status').textContent = "Selecciona un día y mes antes de obtener los datos.";
+      document.getElementById('status').textContent = "Selecciona un día y mes antes de hacer la consulta ❌";
       return;
     }
 
     const { lat, lng } = currentCoords;
-    document.getElementById('status').textContent = "Consultando datos históricos...";
+    document.getElementById('status').textContent = "Obteniendo predicciones... ⏳";
 
     fetch(`/climate_stats?day=${day}&month=${month}&lat=${lat}&lon=${lng}`)
       .then(res => res.json())
