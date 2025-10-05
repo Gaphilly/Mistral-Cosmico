@@ -29,11 +29,39 @@
     .rain { background: #4da6ff; }
     .snow { background: #3399ff; }
     .heat { background: #ff6666; }
+    .wind { background: #ffa500; }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    #logo {
+      width: 50px;
+      height: 50px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+
+    #search-input {
+      flex: 1;
+      padding: 5px;
+      font-size: 1em;
+    }
+
+    #info {
+      font-size: 0.9em;
+      color: #555;
+    }
   </style>
+  <link rel="icon" type="image/jpeg" href="https://i.postimg.cc/SKHxqvsd/Whats-App-Image-2025-10-05-at-11-31-07-AM.jpg">
 </head>
 <body>
 <div id="app">
   <header>
+    <img id="logo" src="/logo.jpg" alt="Mistral Cósmico Logo">
     <input type="text" id="search-input" placeholder="Buscar una localidad..." />
     <button onclick="searchLocation()">Buscar</button>
     <div id="info">
@@ -46,11 +74,11 @@
     <div id="map"></div>
 
     <div id="sidebar">
-      <label><strong>📅 Selecciona un día y mes:</strong></label>
+      <label><strong>📅 Selecciona una fecha:</strong></label>
       <div style="display:flex; gap:5px;">
         <input type="number" id="day-input" placeholder="Día" min="1" max="31" style="width:70px;">
         <input type="number" id="month-input" placeholder="Mes" min="1" max="12" style="width:70px;">
-        <input type="number" id="month-input" placeholder="Año" min="1980" max="3000" style="width:70px;">
+        <input type="number" id="year-input" placeholder="Año" min="1980" max="3000" style="width:70px;">
       </div>
 
       <button id="fetch-btn" onclick="fetchWeather()">🔮 Obtener predicción</button>
@@ -67,6 +95,11 @@
       <div class="indicator">🔥 Probabilidad de calor extremo (&gt;35°C): </div>
       <div class="progress-container">
         <div id="heat-bar" class="progress-bar heat" style="width:0%">0%</div>
+      </div>
+
+      <div class="indicator">💨 Probabilidad de vientos fuertes (&gt;15 m/s): </div>
+      <div class="progress-container">
+        <div id="wind-bar" class="progress-bar wind" style="width:0%">0%</div>
       </div>
 
       <hr />
@@ -149,6 +182,12 @@ function fetchWeather() {
       let heatBar = document.getElementById('heat-bar');
       heatBar.style.width = heatValue + "%";
       heatBar.textContent = heatValue + "%";
+
+      // Strong winds
+      let windValue = data.strong_winds_freq_percent ?? 0;
+      let windBar = document.getElementById('wind-bar');
+      windBar.style.width = windValue + "%";
+      windBar.textContent = windValue + "%";
 
       document.getElementById('status').textContent = "Predicción actualizada ✅";
     })

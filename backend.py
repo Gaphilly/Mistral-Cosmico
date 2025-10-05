@@ -5,6 +5,14 @@ import requests
 import xarray as xr
 import numpy as np
 import re
+import sys
+import json
+import urllib3
+import certifi
+from time import sleep
+import getpass
+from urllib.request import HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, build_opener, install_opener, HTTPCookieProcessor, Request
+from http.cookiejar import CookieJar
 
 # --- Flask app ---
 app = Flask(__name__, static_folder="static")
@@ -18,11 +26,16 @@ os.environ["NETRC"] = NETRC_PATH
 
 BASE_URL = "https://goldsmr4.gesdisc.eosdis.nasa.gov/data/MERRA2/M2SDNXSLV.5.12.4"
 
-# --- Utilities ---
+# ------------------------------
+# Logging
+# ------------------------------
 def log(msg):
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{now}] {msg}")
 
+# ------------------------------
+# Existing climate functions
+# ------------------------------
 def list_month_files(year, month):
     url = f"{BASE_URL}/{year}/{month:02d}/"
     log(f"Listing files at {url}")
@@ -111,6 +124,124 @@ def compute_historical_stats(day, month, lat, lon, years_back=15):
     log(f"Final averages: Temp={avg_t2m}, Rain freq={rainfall_freq_percent}%, Heat freq={heat_freq_percent}%")
     return avg_t2m, rainfall_freq_percent, heat_freq_percent
 
+# ------------------------------
+# Wind speed function (EarthData subset)
+# ------------------------------
+http = urllib3.PoolManager(cert_reqs='CERT_REQUIRED', ca_certs=certifi.where())
+EARTHDATA_SUBSET_URL = 'https://disc.gsfc.nasa.gov/service/subset/jsonwsp'
+
+def get_http_data(request):
+    hdrs = {'Content-Type': 'application/json', 'Accept': 'application/json'}
+    data = json.dumps(request)
+    r = http.request('POST', EARTHDATA_SUBSET_URL, body=data, headers=hdrs)
+    response = json.loads(r.data)
+    if response['type'] == 'jsonwsp/fault':
+        log(f"API Error: faulty {response['methodname']} request")
+        return None
+    return response
+
+def compute_wind_speed_stats(lat_center, lon_center, years_back=15):
+    product = 'M2T1NXSLV_5.12.4'
+    varNames = ['U10M', 'V10M']
+    diurnalAggregation = '1'
+    interp = 'remapbil'
+    destGrid = 'cfsr0.5a'
+
+    username = os.environ.get("EARTHDATA_USER") or input("EarthData userid: ")
+    password = os.environ.get("EARTHDATA_PASS") or getpass.getpass("EarthData password: ")
+
+    # Setup auth for file download
+    password_manager = HTTPPasswordMgrWithDefaultRealm()
+    password_manager.add_password(None, "https://urs.earthdata.nasa.gov", username, password)
+    cookie_jar = CookieJar()
+    opener = build_opener(HTTPBasicAuthHandler(password_manager), HTTPCookieProcessor(cookie_jar))
+    install_opener(opener)
+
+    # Track how many days wind > 15 m/s
+    high_wind_occurrences = []
+
+    today = datetime.date.today()
+    for y in range(today.year - years_back, today.year):
+        begTime = f"{y}-01-01"
+        endTime = f"{y}-12-31"
+
+        subset_request = {
+            'methodname': 'subset',
+            'type': 'jsonwsp/request',
+            'version': '1.0',
+            'args': {
+                'role': 'subset',
+                'start': begTime,
+                'end': endTime,
+                'box': [lon_center-0.5, lat_center-0.5, lon_center+0.5, lat_center+0.5],
+                'crop': True,
+                'diurnalAggregation': diurnalAggregation,
+                'mapping': interp,
+                'grid': destGrid,
+                'data': [{'datasetId': product, 'variable': var} for var in varNames]
+            }
+        }
+
+        response = get_http_data(subset_request)
+        if response is None:
+            continue
+        jobId = response['result']['jobId']
+
+        # Monitor job
+        status_request = {'methodname': 'GetStatus', 'version': '1.0', 'type': 'jsonwsp/request', 'args': {'jobId': jobId}}
+        status_resp = response
+        while status_resp['result']['Status'] in ['Accepted', 'Running']: # type: ignore
+            sleep(5)
+            status_resp = get_http_data(status_request)
+
+        if status_resp['result']['Status'] != 'Succeeded': # type: ignore
+            log(f"[WARN] Wind job failed for year {y}")
+            continue
+
+        # Get result URLs
+        results_request = {'methodname': 'GetResult', 'version': '1.0', 'type': 'jsonwsp/request',
+                           'args': {'jobId': jobId, 'count': 20, 'startIndex': 0}}
+        results = []
+        count = 0
+        response_result = get_http_data(results_request)
+        count += response_result['result']['itemsPerPage'] # type: ignore
+        results.extend(response_result['result']['items']) # type: ignore
+        total = response_result['result']['totalResults'] # type: ignore
+
+        while count < total:
+            results_request['args']['startIndex'] += 20
+            response_result = get_http_data(results_request)
+            count += response_result['result']['itemsPerPage'] # type: ignore
+            results.extend(response_result['result']['items']) # type: ignore
+
+        urls = [item for item in results if 'start' in item and 'end' in item]
+        filenames = []
+        for item in urls:
+            URL = item['link']
+            DataRequest = Request(URL)
+            DataResponse = opener.open(DataRequest)
+            DataBody = DataResponse.read()
+            file_name = os.path.join(CACHE_DIR, item['label'])
+            with open(file_name, 'wb') as f:
+                f.write(DataBody)
+            filenames.append(file_name)
+
+        for file in filenames:
+            ds = xr.open_dataset(file)
+            u = ds['U10M'].values
+            v = ds['V10M'].values
+            wind = np.sqrt(u**2 + v**2)
+            # Daily max wind over the tile
+            daily_max = np.max(wind, axis=0)
+            high_wind_occurrences.append(1 if daily_max > 15 else 0)
+            ds.close()
+
+    if high_wind_occurrences:
+        # Return frequency percent over 15 years
+        return int(np.mean(high_wind_occurrences) * 100)
+    return None
+
+
 # --- Routes ---
 @app.route("/")
 def serve_index():
@@ -134,7 +265,15 @@ def climate_stats():
         log("[ERROR] Missing parameters")
         return jsonify({"error": "Missing parameters. Provide day, month, lat, lon."}), 400
 
+    # Existing stats
     avg_t2m, rainfall_freq_percent, heat_freq_percent = compute_historical_stats(day, month, lat, lon)
+
+    # Wind speed stats
+    try:
+        avg_wind_speed = compute_wind_speed_stats(lat, lon, years_back=15)
+    except Exception as e:
+        log(f"[ERROR] Wind computation failed: {e}")
+        avg_wind_speed = None
 
     # Decide label for precipitation
     if avg_t2m is not None and avg_t2m < -5:
@@ -152,7 +291,8 @@ def climate_stats():
         "lon": lon,
         "avg_temp_C": avg_t2m,
         precip_label: precip_value,
-        "high_heat_freq_percent": heat_freq_percent
+        "high_heat_freq_percent": heat_freq_percent,
+        "avg_10m_wind_speed_m_s": avg_wind_speed
     })
 
 # --- Entry point ---
