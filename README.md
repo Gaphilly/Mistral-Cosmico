@@ -1,6 +1,4 @@
-# Mistral Cósmico
-
-🌦️ Weather Predictor Website
+# 🌦️ Mistral Cósmico
 
 A web application that predicts the weather for any specific date and location in the world, using historical climate data from NASA GES DISC.
 
