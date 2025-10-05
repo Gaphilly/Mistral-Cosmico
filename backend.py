@@ -157,7 +157,7 @@ def compute_wind_speed_stats(lat_center, lon_center, years_back=15):
     opener = build_opener(HTTPBasicAuthHandler(password_manager), HTTPCookieProcessor(cookie_jar))
     install_opener(opener)
 
-    # Track how many days wind > 15 m/s
+    # Track how many days wind > 10 m/s
     high_wind_occurrences = []
 
     today = datetime.date.today()
@@ -233,7 +233,7 @@ def compute_wind_speed_stats(lat_center, lon_center, years_back=15):
             wind = np.sqrt(u**2 + v**2)
             # Daily max wind over the tile
             daily_max = np.max(wind, axis=0)
-            high_wind_occurrences.append(1 if daily_max > 15 else 0)
+            high_wind_occurrences.append(1 if daily_max > 10 else 0)
             ds.close()
 
     if high_wind_occurrences:
