@@ -4,6 +4,7 @@ import datetime
 import requests
 import xarray as xr
 import numpy as np
+import re
 
 # --- Flask app ---
 app = Flask(__name__, static_folder="static")
@@ -19,6 +20,34 @@ os.environ["NETRC"] = NETRC_PATH
 BASE_URL = "https://goldsmr4.gesdisc.eosdis.nasa.gov/data/MERRA2/M2SDNXSLV.5.12.4"
 
 # --- Utilities ---
+def list_month_files(year, month):
+    """Return the list of available files in a given year/month directory."""
+    url = f"{BASE_URL}/{year}/{month:02d}/"
+    print(f"[INFO] Listing files at {url}")
+    try:
+        r = requests.get(url, timeout=15)
+        if r.status_code == 200:
+            files = re.findall(r'href="(MERRA2_\d+\.statD_2d_slv_Nx\.\d+\.nc4)"', r.text)
+            print(f"[INFO] Found {len(files)} files for {year}-{month:02d}")
+            return files
+        else:
+            print(f"[ERROR] Could not list directory {url} (status {r.status_code})")
+            return []
+    except Exception as e:
+        print(f"[ERROR] Failed to list month files for {year}-{month:02d}: {e}")
+        return []
+
+def find_file_for_date(year, month, day):
+    """Finds the correct filename in the monthly listing for the given date."""
+    date_tag = f"{year}{month:02d}{day:02d}"
+    month_files = list_month_files(year, month)
+    for f in month_files:
+        if date_tag in f:
+            print(f"[INFO] Found file for {date_tag}: {f}")
+            return f
+    print(f"[WARN] No file found for {date_tag}")
+    return None
+
 def generate_urls(center_date_str):
     """Generate URLs for a 5-day window centered around the given date."""
     center_date = datetime.datetime.strptime(center_date_str, "%Y-%m-%d").date()
@@ -27,9 +56,9 @@ def generate_urls(center_date_str):
     urls = []
     for n in range((end_date - start_date).days + 1):
         date = start_date + datetime.timedelta(days=n)
-        year, month, day = date.year, f"{date.month:02d}", f"{date.day:02d}"
-        filename = f"MERRA2_400.statD_2d_slv_Nx.{year}{month}{day}.nc4"
-        urls.append(f"{BASE_URL}/{year}/{month}/{filename}")
+        fname = find_file_for_date(date.year, date.month, date.day)
+        if fname:
+            urls.append(f"{BASE_URL}/{date.year}/{date.month:02d}/{fname}")
     return urls
 
 def download_file(url):
@@ -66,7 +95,7 @@ def extract_daily_averages(filename, lat_center, lon_center):
     )
 
     t2m_avg = float(subset["T2MMEAN"].mean() - 273.15)
-    prectot_avg = float(subset["TPRECMAX"].mean() * 86400)
+    prectot_avg = float(subset["TPRECMAX"].mean() * 86400)  # mm/day approx.
 
     ds.close()
     return t2m_avg, prectot_avg
