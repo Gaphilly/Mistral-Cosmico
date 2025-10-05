@@ -23,3 +23,10 @@ A web application that predicts the weather for any specific date and location i
 A prediction algorithm estimates likely conditions for the selected date.
 
 The website displays the results in a clean and interactive format.
+
+## Team
+
+* Gabriel Bourneau
+* Hugo Pizarro Gurdon
+* Éléonore Amann
+* Juliette Aulestia
