@@ -78,17 +78,18 @@ def extract_daily_averages(filename, lat_center, lon_center):
         lon=slice(lon_center - 0.5, lon_center + 0.5),
     )
     t2m_avg = float(subset["T2MMEAN"].mean() - 273.15)
-    prectot_avg = float(subset["TPRECMAX"].mean() * 86400)
-    log(f"Extracted: T2M={t2m_avg:.2f}°C, Precip={prectot_avg:.2f} mm/day")
+    prectot_avg = float(subset["TPRECMAX"].mean() * 86400)  # mm/day approx.
     ds.close()
+    log(f"Extracted: T2M={t2m_avg:.2f}°C, Precip={prectot_avg:.2f} mm/day")
     return t2m_avg, prectot_avg
 
-def compute_historical_averages(day, month, lat, lon, years_back=15):
+def compute_historical_stats(day, month, lat, lon, years_back=15):
     today = datetime.date.today()
     t2m_vals = []
     rainfall_occurrences = []
-    log(f"Computing historical averages for {day:02d}/{month:02d} over {years_back} years")
-    
+    heat_occurrences = []
+
+    log(f"Computing historical stats for {day:02d}/{month:02d} over {years_back} years")
     for y in range(today.year - years_back, today.year):
         log(f"Processing year {y}")
         fname = find_file_for_date(y, month, day)
@@ -99,13 +100,16 @@ def compute_historical_averages(day, month, lat, lon, years_back=15):
                 t2m, prec = extract_daily_averages(f, lat, lon)
                 t2m_vals.append(t2m)
                 rainfall_occurrences.append(1 if prec > 2 else 0)
+                heat_occurrences.append(1 if t2m > 35 else 0)
         else:
             log(f"No file for {y}-{month:02d}-{day:02d}")
 
     avg_t2m = np.mean(t2m_vals) if t2m_vals else None
     rainfall_freq_percent = int(np.mean(rainfall_occurrences) * 100) if rainfall_occurrences else None
-    log(f"Final averages: Temp={avg_t2m}, Rain freq={rainfall_freq_percent}%")
-    return avg_t2m, rainfall_freq_percent
+    heat_freq_percent = int(np.mean(heat_occurrences) * 100) if heat_occurrences else None
+
+    log(f"Final averages: Temp={avg_t2m}, Rain freq={rainfall_freq_percent}%, Heat freq={heat_freq_percent}%")
+    return avg_t2m, rainfall_freq_percent, heat_freq_percent
 
 # --- Routes ---
 @app.route("/")
@@ -130,15 +134,25 @@ def climate_stats():
         log("[ERROR] Missing parameters")
         return jsonify({"error": "Missing parameters. Provide day, month, lat, lon."}), 400
 
-    avg_t2m, rainfall_freq_percent = compute_historical_averages(day, month, lat, lon)
-    log(f"Returning data: avg_t2m={avg_t2m}, rainfall_freq_percent={rainfall_freq_percent}")
+    avg_t2m, rainfall_freq_percent, heat_freq_percent = compute_historical_stats(day, month, lat, lon)
+
+    # Decide label for precipitation
+    if avg_t2m is not None and avg_t2m < -5:
+        precip_label = "snow_hail_freq_percent"
+        precip_value = rainfall_freq_percent
+    else:
+        precip_label = "rainfall_gt_2mm_freq_percent"
+        precip_value = rainfall_freq_percent
+
+    log(f"Returning data with precipitation label {precip_label}")
     return jsonify({
         "day": day,
         "month": month,
         "lat": lat,
         "lon": lon,
         "avg_temp_C": avg_t2m,
-        "rainfall_gt_2mm_freq_percent": rainfall_freq_percent
+        precip_label: precip_value,
+        "high_heat_freq_percent": heat_freq_percent
     })
 
 # --- Entry point ---
