@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Carte avec Météo</title>
+  <title>Mistral Cósmico</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -22,14 +22,18 @@
     <div id="map"></div>
 
     <div id="sidebar">
-      <label><strong>📅 Seleccionar una fecha:</strong></label>
-      <input type="date" id="date-input" />
+      <label><strong>📅 Selecciona un día y mes:</strong></label>
+      <input type="month" id="month-input" style="display:none;"> <!-- hidden fallback -->
+      <div style="display:flex; gap:5px;">
+        <input type="number" id="day-input" placeholder="Día" min="1" max="31" style="width:70px;">
+        <input type="number" id="month-input2" placeholder="Mes" min="1" max="12" style="width:70px;">
+      </div>
 
-      <button id="fetch-btn" onclick="fetchWeather()">📊 Obtener datos</button>
+      <button id="fetch-btn" onclick="fetchWeather()">📊 Obtener datos históricos</button>
 
       <hr />
 
-      <div class="indicator">🌧️ Lluvia promedio: <span id="rain">–</span> mm</div>
+      <div class="indicator">🌧️ Frecuencia de lluvia (&gt;2 mm): <span id="rain">–</span></div>
       <div class="indicator">🌡️ Temperatura promedio: <span id="temp">–</span> °C</div>
 
       <hr />
@@ -41,10 +45,7 @@
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
   const map = L.map('map').setView([48.8566, 2.3522], 5); // Paris por defecto
-
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 18
-  }).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
 
   let marker = null;
   let currentCoords = { lat: 48.8566, lng: 2.3522 };
@@ -62,10 +63,7 @@
     currentCoords = { lat, lng };
   }
 
-  map.on('click', function(e) {
-    const { lat, lng } = e.latlng;
-    updateMarker(lat, lng);
-  });
+  map.on('click', e => updateMarker(e.latlng.lat, e.latlng.lng));
 
   function searchLocation() {
     const query = document.getElementById('search-input').value;
@@ -76,43 +74,37 @@
         if (data.length > 0) {
           const { lat, lon } = data[0];
           updateMarker(parseFloat(lat), parseFloat(lon));
-        } else {
-          alert("Localidad no encontrada.");
-        }
+        } else alert("Localidad no encontrada.");
       });
   }
 
   function reverseGeocode(lat, lng) {
     fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
       .then(res => res.json())
-      .then(data => {
-        const address = data.display_name || "Dirección desconocida";
-        updateInfo(lat, lng, address);
-      })
-      .catch(() => {
-        updateInfo(lat, lng, "Error de geocodificación");
-      });
+      .then(data => updateInfo(lat, lng, data.display_name || "Dirección desconocida"))
+      .catch(() => updateInfo(lat, lng, "Error de geocodificación"));
   }
 
   function fetchWeather() {
-    const date = document.getElementById('date-input').value;
-    if (!date) {
-      document.getElementById('status').textContent = "Selecciona una fecha antes de obtener los datos.";
+    const day = parseInt(document.getElementById('day-input').value);
+    const month = parseInt(document.getElementById('month-input2').value);
+    if (!day || !month) {
+      document.getElementById('status').textContent = "Selecciona un día y mes antes de obtener los datos.";
       return;
     }
 
     const { lat, lng } = currentCoords;
-    document.getElementById('status').textContent = "Consultando datos meteorológicos...";
-
+    document.getElementById('status').textContent = "Consultando datos históricos...";
+    
     Promise.all([
-      fetch(`/temp_avg?date=${date}&lat=${lat}&lon=${lng}`).then(r => r.json()),
-      fetch(`/precip_avg?date=${date}&lat=${lat}&lon=${lng}`).then(r => r.json())
+      fetch(`/temp_stats?day=${day}&month=${month}&lat=${lat}&lon=${lng}`).then(r => r.json()),
+      fetch(`/rain_freq?day=${day}&month=${month}&lat=${lat}&lon=${lng}`).then(r => r.json())
     ])
-    .then(([tempData, precipData]) => {
+    .then(([tempData, rainData]) => {
       const temp = tempData.temp_avg_C ?? "–";
-      const rain = precipData.precip_avg_mm ?? "–";
+      const rainFreq = rainData.rain_freq ?? null;
       document.getElementById('temp').textContent = temp === "–" ? "No data" : temp.toFixed(2);
-      document.getElementById('rain').textContent = rain === "–" ? "No data" : rain.toFixed(2);
+      document.getElementById('rain').textContent = rainFreq === null ? "No data" : `${(rainFreq * 100).toFixed(1)} %`;
       document.getElementById('status').textContent = "Datos actualizados ✅";
     })
     .catch(err => {
