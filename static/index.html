@@ -87,7 +87,7 @@
 
       <div class="indicator">🌡️ Temperatura: <span id="temp">–</span> °C</div>
 
-      <div class="indicator" id="precip-label">🌧️ Frecuencia lluvia: </div>
+      <div class="indicator" id="precip-label">🌧️ Frecuencia de lluvia: </div>
       <div class="progress-container">
         <div id="precip-bar" class="progress-bar rain" style="width:0%">0%</div>
       </div>
@@ -170,7 +170,7 @@ function fetchWeather() {
 
       // Precipitation
       let precipValue = data.rainfall_gt_2mm_freq_percent ?? data.snow_hail_freq_percent;
-      let precipLabel = data.snow_hail_freq_percent !== undefined ? "❄️ Probabilidad nieve/granizo" : "🌧️ Frecuencia lluvia (>2mm)";
+      let precipLabel = data.snow_hail_freq_percent !== undefined ? "❄️ Probabilidad nieve/granizo" : "🌧️ Frecuencia de lluvia (>2mm)";
       document.getElementById('precip-label').textContent = precipLabel;
       let precipBar = document.getElementById('precip-bar');
       precipBar.style.width = precipValue + "%";

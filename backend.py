@@ -157,7 +157,7 @@ def compute_wind_speed_stats(lat_center, lon_center, years_back=15):
     opener = build_opener(HTTPBasicAuthHandler(password_manager), HTTPCookieProcessor(cookie_jar))
     install_opener(opener)
 
-    # Track how many days wind > 10 m/s
+    # Track whether each processed year includes at least one day above 10 m/s.
     high_wind_occurrences = []
 
     today = datetime.date.today()
@@ -231,13 +231,13 @@ def compute_wind_speed_stats(lat_center, lon_center, years_back=15):
             u = ds['U10M'].values
             v = ds['V10M'].values
             wind = np.sqrt(u**2 + v**2)
-            # Daily max wind over the tile
+            # Maximum wind magnitude for the downloaded period over the tile.
             daily_max = np.max(wind, axis=0)
             high_wind_occurrences.append(1 if daily_max > 10 else 0)
             ds.close()
 
     if high_wind_occurrences:
-        # Return frequency percent over 15 years
+        # Return the percent of processed years that show high-wind occurrence.
         return int(np.mean(high_wind_occurrences) * 100)
     return None
 
@@ -275,10 +275,10 @@ def climate_stats():
 
     # Wind speed stats
     try:
-        avg_wind_speed = compute_wind_speed_stats(lat, lon, years_back=15)
+        strong_winds_freq_percent = compute_wind_speed_stats(lat, lon, years_back=15)
     except Exception as e:
         log(f"[ERROR] Wind computation failed: {e}")
-        avg_wind_speed = None
+        strong_winds_freq_percent = None
 
     # Decide label for precipitation
     if avg_t2m is not None and avg_t2m < -5:
@@ -297,7 +297,7 @@ def climate_stats():
         "avg_temp_C": avg_t2m,
         precip_label: precip_value,
         "high_heat_freq_percent": heat_freq_percent,
-        "avg_10m_wind_speed_m_s": avg_wind_speed
+        "strong_winds_freq_percent": strong_winds_freq_percent
     })
 
 # --- Entry point ---
