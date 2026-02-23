@@ -11,7 +11,7 @@ A web application that predicts the weather for any specific date and location i
 * Global coverage: Select any place on Earth using an interactive map or a search bar.
 * Date-based prediction: Choose a specific date to view estimated conditions.
 * Historical data analysis: Uses NASA GES DISC datasets to infer weather trends.
-* Detailed results: Displays predicted temperature, precipitation, and wind information.
+* Detailed results: Displays predicted temperature, precipitation, and the frequency of strong-wind years (>10 m/s).
 * Simple interface: Designed to be easy to use and visually clear.
 
 ## How It Works
